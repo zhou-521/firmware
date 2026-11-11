@@ -256,3 +256,9 @@ if [ -f "${STRIPPER}" ]; then
 	fi
 	rm -f "${STRIP_TMP}" "${STRIP_ERR}"
 fi
+
+# ---- GC2053 (SSC377D) fork addition ----
+# Web-created commits store overlay scripts without the executable bit; rcS
+# skips non-executable S* scripts, so force the two GC2053 scripts executable.
+chmod 0755 ${TARGET_DIR}/etc/init.d/S90sensor \
+           ${TARGET_DIR}/usr/bin/load_sigmastar_gc2053.sh 2>/dev/null || true
