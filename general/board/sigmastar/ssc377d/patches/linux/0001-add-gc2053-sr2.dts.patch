@@ -1,0 +1,38 @@
+--- a/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
++++ b/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
+@@ -168,4 +168,34 @@
+             linux,cma-default;
+         };
+     };
++};
++/* ============ GC2053 适配 (SSC377D / infinity6c, 星宸私有 ISP/MIPI 框架) ============
++ * 本平台【不使用 Linux Media 子系统】，不添加 V4L2 camera/port/endpoint 节点。
++ * GC2053 外置模块 = sensor_gc2053_mipi.ko，通过 chmap 选择绑定的 sensor pad。
++ *
++ * 依据：原厂 backup 内 demo.sh 的加载方式为
++ *     insmod gc2053_MIPI.ko chmap=4
++ * 且实测 chmap 与 pad 的对应关系为  1->pad0(sr0) / 2->pad1 / 4->pad2(sr2)，
++ * 因此本板 GC2053 实际接在 sr2（2-Lane 接收器），而非 sr0。
++ *
++ * 下列取值与原厂 infinity6c-ssc027a-s01a DTB 完全一致：
++ *   sr0 = 4-lane  （本板未使用，保持厂商默认，避免接收器参数不自洽）
++ *   sr2 = 2-lane  （GC2053 实际通路）
++ *   sensorif grp0/grp2 均走 i2c1（原厂实测 ssc027a 的 sensor I2C 在 i2c-1）
++ * ================================================================================= */
++&csi {
++    /* 接收器 0：厂商默认 4-lane，本板不接 sensor */
++    csi_sr0_lane_num    = <4>;
++    csi_sr0_lane_select = <0 1 2 3 4>;
++    csi_sr0_lane_pn_swap = <0 0 0 0 0>;
++
++    /* 接收器 2：GC2053 2-lane，禁止改成 4-lane */
++    csi_sr2_lane_num    = <2>;
++    csi_sr2_lane_select = <0 1 2>;
++    csi_sr2_lane_pn_swap = <0 0 0>;
++};
++
++&sensorif {
++    sensorif_mipi_grp0_i2c = <1>;   /* 原厂值；i2c-1 上实测 0x37 有应答 */
++    sensorif_mipi_grp2_i2c = <1>;
+ };
+\ No newline at end of file
