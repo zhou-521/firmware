@@ -28,10 +28,13 @@ FW=/etc/firmware
 GC2053_KO=${KMOD}/sensor_gc2053_mipi.ko
 MI_ONE=${KMOD}/mi.ko
 MI_SPLIT="mi_sys mi_common mi_isp mi_vif mi_sensor"
-# 可选：驱动 insmod 参数。默认留空，避免传入未支持的参数导致 insmod 失败。
-# 若自建固件的 sensor_gc2053_mipi.ko 需要 chmap / lane_num，先 modinfo 确认后
-# 再按需传入，例如：GC2053_KO_ARGS="chmap=1 lane_num=2" S90sensor start
-GC2053_KO_ARGS=${GC2053_KO_ARGS:-}
+# 驱动 insmod 参数（必须带，否则 sensor 绑错接收器 / lane 数不对，MIPI 无数据）
+#   chmap=4      → 绑定 sensor pad 2，即 CSI 接收器 sr2（本板 GC2053 实际通路）
+#                  实测对应关系：chmap=1→pad0(sr0)  2/3→pad1  4→pad2(sr2)
+#   lane_num=2   → GC2053 为 2-Lane MIPI，禁止改 4
+#   i2c_slave_id → 不传，交给驱动默认（原厂亦不传；实测 i2c-1 上 0x37 有应答）
+#   mclk         → 不传，用驱动默认 27MHz（GC2053 内置 PLL，27MHz 为合法工作时钟）
+GC2053_KO_ARGS=${GC2053_KO_ARGS:-chmap=4 lane_num=2}
 
 # ---------- 厂商底层驱动是否已加载（两种形态都有 mi_common）----------
 vendor_loaded() {
@@ -103,8 +106,10 @@ unload_all() {
     echo "[GC2053] 卸载 ..."
     rmmod sensor_gc2053_mipi 2>/dev/null || true
     if [ -f "$MI_ONE" ] || grep -q '^mi ' /proc/modules 2>/dev/null; then
-        # 形态 A 的 mi.ko 可能是 S70vendor 加载的，卸载失败属正常（仍被占用）
-        rmmod mi 2>/dev/null || echo "  (mi 仍被占用，跳过)"
+        # mi.ko 由 S70vendor 在启动时加载，【禁止在这里 rmmod】：
+        # 强行卸载会让 mi 处于"半初始化"状态（模块仍在列表里但 init 未跑完），
+        # 之后 insmod 任何 sensor 模块都会 Unknown symbol，且关机回调损坏会 panic。
+        echo "  (mi 由 S70vendor 管理，保留不卸载)"
     else
         for n in mi_sensor mi_vif mi_isp mi_common mi_sys; do
             rmmod "$n" 2>/dev/null || true
