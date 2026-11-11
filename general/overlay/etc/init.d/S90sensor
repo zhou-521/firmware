@@ -1,0 +1,64 @@
+#!/bin/sh
+# ============================================================
+# S90sensor - OpenIPC 开机服务：加载 GC2053 传感器 (SSC377D / infinity6c)
+# 安装位置：/etc/init.d/S90sensor（由 buildroot overlay 自动打包进根文件系统）
+# 规范：OpenIPC 使用 BusyBox init。开机进入运行级时自动执行本脚本的 start，
+#       关机时执行 stop。请勿改动 S 前缀编号（决定启动顺序，需在 majestic 之前）。
+# 职责：调用 /usr/bin/load_sigmastar_gc2053.sh 完成模块加载。
+# 约束：GC2053 固定，不换型号；走星宸私有 ISP/MIPI 框架，不使用 Linux Media 子系统。
+#
+# ★ Rev1.1（官方 lite 板端实测后的修订）：
+#   - 官方 S70vendor 会先跑 load_sigmastar -i 加载 mi.ko；本服务调用的脚本
+#     会检测已加载的厂商驱动并跳过，避免重复 insmod。
+#   - 官方 set_sensor 的支持列表不含 gc2053（打印 UNSUPPORTED），所以
+#     GC2053 外置 ko 必须由本服务独立加载，这一步不能省。
+#   - 前提：U-Boot ENV 必须有 sensor=gc2053（见 ssc377d_env_gc2053.bin），
+#     否则 S70vendor 会走 autodetect 并可能覆写 sensor。
+#   - 官方镜像缺 /etc/fw_env.config，fw_printenv/fw_setenv 可能不可用；
+#     本链路不依赖它，直接由 U-Boot ENV 烧录保证 sensor 变量。
+# ============================================================
+
+NAME="sensor"
+LOAD_SCRIPT="/usr/bin/load_sigmastar_gc2053.sh"
+
+start() {
+    echo -n "Starting ${NAME}: "
+    if [ -x "${LOAD_SCRIPT}" ]; then
+        ${LOAD_SCRIPT} start
+        echo "OK"
+    else
+        echo "FAIL (missing ${LOAD_SCRIPT})"
+        return 1
+    fi
+}
+
+stop() {
+    echo -n "Stopping ${NAME}: "
+    if [ -x "${LOAD_SCRIPT}" ]; then
+        ${LOAD_SCRIPT} stop
+    fi
+    echo "OK"
+}
+
+restart() {
+    stop
+    start
+}
+
+case "$1" in
+    start|"")
+        start
+        ;;
+    stop)
+        stop
+        ;;
+    restart|reload)
+        restart
+        ;;
+    *)
+        echo "Usage: $0 {start|stop|restart}"
+        exit 1
+        ;;
+esac
+
+exit 0
