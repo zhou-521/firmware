@@ -1,17 +1,15 @@
-# GC2053 on mipi0 for infinity6c-ssc027a-s01a (SSC377D)
-# 纯星宸私有 ISP/MIPI 框架补丁，不添加任何 Linux Media 子系统节点
-# 应用： cd <linux 源码树> && patch -p1 < 0001-add-gc2053-mipi0.dts.patch
 --- a/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
 +++ b/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
-@@ -168,4 +168,35 @@
+@@ -168,4 +168,26 @@
              linux,cma-default;
          };
      };
-+
-+
+-};
+\ No newline at end of file
++};
 +/* ============ GC2053 适配 (SSC377D / infinity6c, 星宸私有 ISP/MIPI 框架) ============
 + * 本平台【不使用 Linux Media 子系统】，不添加 V4L2 camera/port/endpoint 节点。
-+ * GC2053 为外置模块 sensor_gc2053_mipi.ko；以下仅做 padmux / lane / i2c 分组映射。
++ * GC2053 为外置模块 sensor_gc2053_mipi.ko；以下仅做 lane / i2c 分组映射。
 + * 传感器参数由该模块的 sensor_config.c 提供（不在此 DTS 以 media 风格属性声明）：
 + *   I2C 地址    = 0x37  （原厂实测；i2cdetect -y 0 扫不到再改 0x3C，只改地址、不换 sensor）
 + *   复位脚       = gpio44 (ACTIVE_LOW)
@@ -27,16 +25,7 @@
 +    csi_sr0_lane_pn_swap = <0 0>;
 +};
 +
-+/* vif_sr0 沿用 dtsi 默认（mipi_mode=2 / rst=3 / pdn=0 / mclk=1），GC2053 无需改动 */
-+
 +/* GC2053 接在 i2c0（组 0），地址 0x37 */
 +&sensorif {
 +    sensorif_mipi_grp0_i2c = <0>;    /* 改为 <1> 即切到 i2c1 */
 +};
-+
-+/* ---- 切换到 mipi1 通道（GC2053 若路由到 mipi1 / sr2）：
-+ *   将上述 csi_sr0_* / sensorif_mipi_grp0_i2c 改为
-+ *   csi_sr2_* / sensorif_mipi_grp2_i2c = <1>；
-+ *   dtsi 中 sr2 默认已是 2-lane（csi_sr2_lane_num=<2>），lane 数无需改。 */
- };
-\ No newline at end of file
