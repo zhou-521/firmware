@@ -1,0 +1,38 @@
+--- a/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
++++ b/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
+@@ -168,4 +168,34 @@
+             linux,cma-default;
+         };
+     };
++};
++/* ============ GC2053 适配 (SSC377D / infinity6c, 星宸私有 ISP/MIPI) ============
++ * 本平台不使用 Linux Media/V4L2，不添加 camera/port/endpoint 节点。
++ * GC2053 为外置模块 sensor_gc2053_mipi.ko，chmap 选择绑定的 sensor pad。
++ *
++ * 板端实测结论（2026-11-11）：
++ *   1) GC2053 实际接在 sr0 / sensor pad 0，chmap=1 lane_num=2 才能出流；
++ *      驱动日志 Connect gc2053_init_driver linear to sensor pad 0
++ *   2) 原厂 demo.sh 的 chmap=4 属于另一硬件变体，本板用 chmap=4 会绑到
++ *      pad2，而 majestic 只查询 pad0，报 Cannot query sensor index。
++ *   3) sr0 原厂默认 4-lane (0,1,2,3,4)/(0,0,0,0,0)。GC2053 是 2-lane，
++ *      lane 数不匹配时 VIF 收不到帧：output not finished more than 5060ms。
++ *   4) sensorif grp0 必须走 i2c1；原厂旧值 0 会让 sensor 初始化失败，
++ *      表现为 SENSOR pad 0 enable fail。
++ * ========================================================================== */
++&csi {
++    /* 接收器 0：GC2053 实际通路，2-lane */
++    csi_sr0_lane_num    = <2>;
++    csi_sr0_lane_select = <0 1 2>;
++    csi_sr0_lane_pn_swap = <0 0 0>;
++
++    /* 接收器 2：本板未接 sensor，保持 2-lane 厂商默认 */
++    csi_sr2_lane_num    = <2>;
++    csi_sr2_lane_select = <0 1 2>;
++    csi_sr2_lane_pn_swap = <0 0 0>;
++};
++
++&sensorif {
++    sensorif_mipi_grp0_i2c = <1>;   /* i2c-1 上实测 0x37 有应答 */
++    sensorif_mipi_grp2_i2c = <1>;
+ };
+\ No newline at end of file
