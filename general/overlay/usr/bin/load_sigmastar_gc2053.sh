@@ -1,16 +1,42 @@
 #!/bin/sh
-# load_sigmastar_gc2053.sh  Rev1.2 (shipping, ASCII log)
+# load_sigmastar_gc2053.sh  Rev1.3 (shipping, ASCII log)
 # OpenIPC infinity6c / SSC377D + GC2053 (external ko)
-# Order: vendor ISP/MIPI driver first, sensor_gc2053_mipi.ko last.
+# Order: sensor power-on GPIOs first (vendor demo.sh sequence), then
+# vendor ISP/MIPI driver, sensor_gc2053_mipi.ko last.
 # GC2053 sits on sr0 / sensor pad 0 -> chmap = 2^0 = 1, 2-lane MIPI.
 # chmap=4 would bind pad2: the sensor still registers, but majestic only
 # queries pad0 and fails with "Cannot query sensor index".
+# NOTE(2026-11-12): without the GPIO43/GPIO42 power-on sequence the sensor
+# ACKs on I2C but every register reads 0x00 and no MIPI data is produced.
 KMOD=/lib/modules/5.10.61/sigmastar
 FW=/etc/firmware
 GC2053_KO=${KMOD}/sensor_gc2053_mipi.ko
 MI_ONE=${KMOD}/mi.ko
 MI_SPLIT="mi_sys mi_common mi_isp mi_vif mi_sensor"
 GC2053_KO_ARGS=${GC2053_KO_ARGS:-chmap=1 lane_num=2}
+
+# Vendor power-on sequence (customer demo.sh):
+#   GPIO43 -> high (sensor power / LDO enable)
+#   GPIO42 -> low, wait 200ms, high (reset release timing)
+sensor_power_on() {
+    if [ ! -d /sys/class/gpio/gpio43 ]; then
+        echo 43 > /sys/class/gpio/export 2>/dev/null
+    fi
+    if [ ! -d /sys/class/gpio/gpio42 ]; then
+        echo 42 > /sys/class/gpio/export 2>/dev/null
+    fi
+    if [ -d /sys/class/gpio/gpio43 ] && [ -d /sys/class/gpio/gpio42 ]; then
+        echo out > /sys/class/gpio/gpio43/direction
+        echo 1   > /sys/class/gpio/gpio43/value
+        echo out > /sys/class/gpio/gpio42/direction
+        echo 0   > /sys/class/gpio/gpio42/value
+        usleep 200000 2>/dev/null || sleep 1
+        echo 1   > /sys/class/gpio/gpio42/value
+        echo "[GC2053] sensor power-on sequence done (gpio43=1, gpio42 0->1)"
+    else
+        echo "  WARN: gpio42/43 export failed, skip power-on sequence"
+    fi
+}
 
 vendor_loaded() {
     [ -d /sys/module/mi_common ] && return 0
@@ -59,6 +85,7 @@ load_gc2053() {
         echo "  ERROR: $GC2053_KO not found"
         return 1
     fi
+    sensor_power_on
     if grep -q '^sensor_gc2053_mipi ' /proc/modules 2>/dev/null; then
         rmmod sensor_gc2053_mipi 2>/dev/null || true
     fi
