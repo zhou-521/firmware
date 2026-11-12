@@ -1,28 +1,25 @@
 --- a/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
 +++ b/arch/arm/boot/dts/infinity6c-ssc027a-s01a.dts
-@@ -168,4 +168,43 @@
-            linux,cma-default;
-        };
-    };
+@@ -168,4 +168,39 @@
+             linux,cma-default;
+         };
+     };
 -};
 \ No newline at end of file
-+
-+
++};
 +/* ============ GC2053 适配 (SSC377D / infinity6c, 星宸私有 ISP/MIPI) ============
 + * 本平台不使用 Linux Media/V4L2，不添加 camera/port/endpoint 节点。
 + * GC2053 为外置模块 sensor_gc2053_mipi.ko，chmap 选择绑定的 sensor pad。
 + *
 + * vif_srX_*_mode 是 VIF 传感器 pad 控制器配置（SR_IO 专用引脚，不走 padmux 表）。
 + * 以下取值逐项对齐原厂出厂固件 DTB（mtd2 备份，原厂样机在该配置下可出图）：
-+ *   vif_sr0_mipi_mode     2 -> 0    (openipc 默认 2 会把 pad0 数据脚复用走别的功能)
++ *   vif_sr0_mipi_mode     2 -> 0
 + *   vif_sr0_mipi_rst_mode 3 -> 1
 + *   vif_sr2_mipi_mode     3 -> 0
 + *   vif_sr2_mipi_rst_mode 1 -> 3
 + * csi：GC2053 为 2-lane，sr0/sr2 均按 2-lane 配置，chmap 决定实际通路。
-+ * sensorif：两组 MIPI I2C 都映射到 i2c-1（与原厂一致，0x37 在该总线应答）。
-+ * 实测补充（2026-11-12）：传感器寄存器读回全 0 的直接原因是 pad 未按上电时序
-+ * 配置（原厂 demo.sh 先拉 GPIO43/GPIO42 再加载驱动）；vif 模式值错会导致
-+ * MCLK/数据脚无法路由到传感器。GPIO 时序已加入 openipc 加载脚本。
++ * sensorif：两组 MIPI I2C 都映射到 i2c-1（与原厂一致）。
++ * 加载脚本另含原厂 GPIO43/GPIO42 传感器上电时序（demo.sh 移植）。
 + * ========================================================================== */
 +&vif {
 +    vif_sr0_mipi_mode     = <0>;
@@ -32,7 +29,6 @@
 +};
 +
 +&csi {
-+    /* GC2053: 2-lane MIPI。sr0 与 sr2 均配置，chmap 现场可切 */
 +    csi_sr0_lane_num     = <2>;
 +    csi_sr0_lane_select  = <0 1 2>;
 +    csi_sr0_lane_pn_swap = <0 0 0>;
@@ -43,6 +39,6 @@
 +};
 +
 +&sensorif {
-+    sensorif_mipi_grp0_i2c = <1>;   /* i2c-1 上实测 0x37 有应答 */
++    sensorif_mipi_grp0_i2c = <1>;
 +    sensorif_mipi_grp2_i2c = <1>;
 +};
